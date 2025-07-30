@@ -9,7 +9,7 @@ const app = express();
 app.use(helmet());
 
 // Middleware to parse JSON and validate content-type
-app.use('/send-email', (req, res, next) => {
+app.use(process.env.CONTACT_ENDPOINT, (req, res, next) => {
   if (req.get('Content-Type') !== 'application/json') {
     return res.status(400).json({ 
       error: 'Content-Type must be application/json' 
@@ -22,11 +22,13 @@ app.use(express.json({ limit: '1mb' }));
 
 // Environment variables validation
 const requiredEnvVars = [
-  'HOST_DOMAIN',
   'CLIENT_KEY', 
+  'CONTACT_ENDPOINT',
+  'HOST_DOMAIN',
+  'HOST_PORT',
   'RECIPIENT_ADDRESS',
-  'RECIPIENT_PASSWORD',
-  'PORT'
+  'SMTP_USER',
+  'SMTP_PASSWORD'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -56,17 +58,16 @@ const authenticateApiKey = (req, res, next) => {
 
 // Create nodemailer transporter
 const createTransporter = () => {
-  return nodemailer.createTransporter({
+  return nodemailer.createTransport({
     host: process.env.HOST_DOMAIN,
-    port: 587, // Standard SMTP port for TLS
+    port: process.env.HOST_PORT, // Standard SMTP port for TLS
     secure: false, // Use TLS
     auth: {
-      user: process.env.RECIPIENT_ADDRESS,
-      pass: process.env.RECIPIENT_PASSWORD
+      user: process.env.SMTP_USER, // Use SMTP_USER for authentication
+      pass: process.env.SMTP_PASSWORD
     },
-    tls: {
-      rejectUnauthorized: false // For development/testing
-    }
+    disableFileAccess: true, // Disable file access for security
+    disableUrlAccess: true // Disable URL access for security
   });
 };
 
@@ -122,7 +123,7 @@ app.get('/health', (req, res) => {
 });
 
 // Send email endpoint
-app.post('/send-email', authenticateApiKey, async (req, res) => {
+app.post(process.env.CONTACT_ENDPOINT, authenticateApiKey, async (req, res) => {
   try {
     // Validate input
     const validationErrors = validateEmailInput(req.body);
@@ -150,7 +151,7 @@ app.post('/send-email', authenticateApiKey, async (req, res) => {
     
     // Email options
     const mailOptions = {
-      from: `"${senderName}" <${process.env.RECIPIENT_ADDRESS}>`, // Use authenticated email as sender
+      from: senderEmail, // Use authenticated email as sender
       replyTo: senderEmail, // Set reply-to as the original sender
       to: process.env.RECIPIENT_ADDRESS,
       subject: `Contact Form: ${subject}`,
@@ -219,8 +220,7 @@ app.use((error, req, res, next) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 80;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Email server running on port ${PORT}`);
-  console.log(`Health check available at: http://localhost:${PORT}/health`);
+app.listen(3000, '0.0.0.0', () => {
+  console.log(`Email server running on port 3000`);
+  console.log(`Health check available at: http://localhost:3000/health`);
 });

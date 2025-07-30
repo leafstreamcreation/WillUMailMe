@@ -1,5 +1,5 @@
-# Use the official Node.js 20 Alpine image
-FROM node:20-alpine
+# Use the official Node.js Alpine image
+FROM node:alpine
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy the rest of the application code
 COPY . .
@@ -26,7 +26,7 @@ EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:80/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
+  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
 
 # Start the application
 CMD ["npm", "start"]

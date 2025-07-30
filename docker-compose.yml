@@ -4,13 +4,8 @@ services:
   willuemailme:
     build: .
     ports:
-      - "80:80"
+      - "8060:3000"
     environment:
-      - HOST_DOMAIN=${HOST_DOMAIN}
-      - CLIENT_KEY=${CLIENT_KEY}
-      - RECIPIENT_ADDRESS=${RECIPIENT_ADDRESS}
-      - RECIPIENT_PASSWORD=${RECIPIENT_PASSWORD}
-      - PORT=80
       - NODE_ENV=production
     env_file:
       - .env
