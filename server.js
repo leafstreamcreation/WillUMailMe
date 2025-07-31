@@ -3,6 +3,24 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const helmet = require('helmet');
 
+// Environment variables validation
+const requiredEnvVars = [
+  'CLIENT_KEY', 
+  'CONTACT_ENDPOINT',
+  'HOST_DOMAIN',
+  'HOST_PORT',
+  'RECIPIENT_ADDRESS',
+  'SMTP_USER',
+  'SMTP_PASSWORD'
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingEnvVars.length > 0) {
+  console.error('Missing required environment variables:', missingEnvVars.join(', '));
+  process.exit(1);
+}
+
+
 const app = express();
 
 // Security middleware
@@ -20,22 +38,18 @@ app.use(process.env.CONTACT_ENDPOINT, (req, res, next) => {
 
 app.use(express.json({ limit: '1mb' }));
 
-// Environment variables validation
-const requiredEnvVars = [
-  'CLIENT_KEY', 
-  'CONTACT_ENDPOINT',
-  'HOST_DOMAIN',
-  'HOST_PORT',
-  'RECIPIENT_ADDRESS',
-  'SMTP_USER',
-  'SMTP_PASSWORD'
-];
+app.locals.transporter = nodemailer.createTransport({
+    host: process.env.HOST_DOMAIN,
+    port: process.env.HOST_PORT, // Standard SMTP port for TLS
+    secure: false, // Use TLS
+    auth: {
+      user: process.env.SMTP_USER, // Use SMTP_USER for authentication
+      pass: process.env.SMTP_PASSWORD
+    },
+    disableFileAccess: true, // Disable file access for security
+    disableUrlAccess: true // Disable URL access for security
+});
 
-const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
-if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars.join(', '));
-  process.exit(1);
-}
 
 // API key authentication middleware
 const authenticateApiKey = (req, res, next) => {
@@ -55,22 +69,6 @@ const authenticateApiKey = (req, res, next) => {
   
   next();
 };
-
-// Create nodemailer transporter
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.HOST_DOMAIN,
-    port: process.env.HOST_PORT, // Standard SMTP port for TLS
-    secure: false, // Use TLS
-    auth: {
-      user: process.env.SMTP_USER, // Use SMTP_USER for authentication
-      pass: process.env.SMTP_PASSWORD
-    },
-    disableFileAccess: true, // Disable file access for security
-    disableUrlAccess: true // Disable URL access for security
-  });
-};
-
 // Input validation function
 const validateEmailInput = (data) => {
   const errors = [];
@@ -114,12 +112,23 @@ const validateEmailInput = (data) => {
 };
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
-  });
+app.get('/health', async (req, res) => {
+    app.locals.transporter.verify((error, success) => {
+        if (error) { 
+            console.error('SMTP connection failed:', error);
+            return res.status(500).json({ 
+            error: 'Email service configuration error' 
+            });
+        }
+        else {
+          console.log('SMTP connection verified successfully');
+          return res.status(200).json({ 
+              status: 'healthy',
+              timestamp: new Date().toISOString(),
+              version: '1.0.0'
+          });
+        }
+    });
 });
 
 // Send email endpoint
@@ -135,19 +144,6 @@ app.post(process.env.CONTACT_ENDPOINT, authenticateApiKey, async (req, res) => {
     }
     
     const { senderName, senderEmail, subject, message } = req.body;
-    
-    // Create transporter
-    const transporter = createTransporter();
-    
-    // Verify SMTP connection
-    try {
-      await transporter.verify();
-    } catch (verifyError) {
-      console.error('SMTP connection failed:', verifyError);
-      return res.status(500).json({ 
-        error: 'Email service configuration error' 
-      });
-    }
     
     // Email options
     const mailOptions = {
@@ -166,11 +162,11 @@ app.post(process.env.CONTACT_ENDPOINT, authenticateApiKey, async (req, res) => {
     };
     
     // Send email
-    const info = await transporter.sendMail(mailOptions);
+    const info = await app.locals.transporter.sendMail(mailOptions);
     
     console.log('Email sent successfully:', info.messageId);
     
-    res.json({ 
+    return res.status(200).json({ 
       success: true,
       message: 'Email sent successfully',
       messageId: info.messageId
