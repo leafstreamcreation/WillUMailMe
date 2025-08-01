@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const nodemailer = require('nodemailer');
 const helmet = require('helmet');
+const cors = require('cors');
 
 // Environment variables validation
 const requiredEnvVars = [
@@ -24,6 +25,8 @@ const app = express();
 
 // Security middleware
 app.use(helmet());
+// Enable CORS for all origins
+app.use(cors());
 
 // Middleware to parse JSON and validate content-type
 app.use('/send', (req, res, next) => {
