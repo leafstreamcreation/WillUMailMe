@@ -27,14 +27,7 @@ cd WillUMailMe
 cp .env.example .env
 ```
 
-3. Edit `.env` with your SMTP credentials:
-```env
-HOST_DOMAIN=smtp.gmail.com
-CLIENT_KEY=your-super-secure-api-key
-RECIPIENT_ADDRESS=your-email@gmail.com
-RECIPIENT_PASSWORD=your-app-password
-PORT=80
-```
+3. Edit `.env` with your SMTP credentials
 
 4. Start the service:
 ```bash
@@ -79,7 +72,7 @@ npm start
 
 ### Send Email
 
-**Endpoint:** `POST /send-email`
+**Endpoint:** `POST /send`
 
 **Headers:**
 ```
@@ -127,43 +120,11 @@ X-API-Key: your-api-key-here
 }
 ```
 
-## Environment Variables
-
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `HOST_DOMAIN` | ✅ | SMTP server hostname | `smtp.gmail.com` |
-| `CLIENT_KEY` | ✅ | API authentication key | `your-secure-key` |
-| `RECIPIENT_ADDRESS` | ✅ | Email recipient address | `contact@example.com` |
-| `RECIPIENT_PASSWORD` | ✅ | SMTP authentication password | `app-password` |
-| `PORT` | ✅ | Server port | `80` |
-
-## SMTP Configuration Examples
-
-### Gmail
-```env
-HOST_DOMAIN=smtp.gmail.com
-RECIPIENT_ADDRESS=your-email@gmail.com
-RECIPIENT_PASSWORD=your-16-character-app-password
-```
-
 **Note:** For Gmail, you need to:
 1. Enable 2-factor authentication
 2. Generate an App Password (not your regular password)
 3. Use the 16-character app password
 
-### Outlook/Hotmail
-```env
-HOST_DOMAIN=smtp-mail.outlook.com
-RECIPIENT_ADDRESS=your-email@outlook.com
-RECIPIENT_PASSWORD=your-email-password
-```
-
-### Custom SMTP
-```env
-HOST_DOMAIN=mail.your-domain.com
-RECIPIENT_ADDRESS=contact@your-domain.com
-RECIPIENT_PASSWORD=your-smtp-password
-```
 
 ## Security Features
 

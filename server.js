@@ -6,7 +6,6 @@ const helmet = require('helmet');
 // Environment variables validation
 const requiredEnvVars = [
   'CLIENT_KEY', 
-  'CONTACT_ENDPOINT',
   'HOST_DOMAIN',
   'HOST_PORT',
   'RECIPIENT_ADDRESS',
@@ -27,7 +26,7 @@ const app = express();
 app.use(helmet());
 
 // Middleware to parse JSON and validate content-type
-app.use(process.env.CONTACT_ENDPOINT, (req, res, next) => {
+app.use('/send', (req, res, next) => {
   if (req.get('Content-Type') !== 'application/json') {
     return res.status(400).json({ 
       error: 'Content-Type must be application/json' 
@@ -112,7 +111,7 @@ const validateEmailInput = (data) => {
 };
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get('/health', authenticateApiKey, async (req, res) => {
     app.locals.transporter.verify((error, success) => {
         if (error) { 
             console.error('SMTP connection failed:', error);
@@ -132,7 +131,7 @@ app.get('/health', async (req, res) => {
 });
 
 // Send email endpoint
-app.post(process.env.CONTACT_ENDPOINT, authenticateApiKey, async (req, res) => {
+app.post('/send', authenticateApiKey, async (req, res) => {
   try {
     // Validate input
     const validationErrors = validateEmailInput(req.body);
