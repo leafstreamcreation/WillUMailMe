@@ -9,7 +9,6 @@ const requiredEnvVars = [
   'CLIENT_KEY', 
   'HOST_DOMAIN',
   'HOST_PORT',
-  'RECIPIENT_ADDRESS',
   'SMTP_USER',
   'SMTP_PASSWORD'
 ];
@@ -49,7 +48,6 @@ app.locals.transporter = nodemailer.createTransport({
       pass: process.env.SMTP_PASSWORD
     },
     disableFileAccess: true, // Disable file access for security
-    disableUrlAccess: true // Disable URL access for security
 });
 
 
@@ -145,22 +143,16 @@ app.post('/send', authenticateApiKey, async (req, res) => {
       });
     }
     
-    const { senderName, senderEmail, subject, message } = req.body;
+    const { destination, senderEmail, replyTo, subject, text, html } = req.body;
     
     // Email options
     const mailOptions = {
       from: senderEmail, // Use authenticated email as sender
-      replyTo: senderEmail, // Set reply-to as the original sender
-      to: process.env.RECIPIENT_ADDRESS,
-      subject: `Contact Form: ${subject}`,
-      text: `From: ${senderName} (${senderEmail})\n\nMessage:\n${message}`,
-      html: `
-        <h3>Contact Form Submission</h3>
-        <p><strong>From:</strong> ${senderName} (${senderEmail})</p>
-        <p><strong>Subject:</strong> ${subject}</p>
-        <p><strong>Message:</strong></p>
-        <p>${message.replace(/\n/g, '<br>')}</p>
-      `
+      replyTo: replyTo || senderEmail, // Set reply-to as the original sender or a specified address
+      to: destination,
+      subject: subject,
+      text: text,
+      html: html,
     };
     
     // Send email
