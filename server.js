@@ -73,10 +73,6 @@ const authenticateApiKey = (req, res, next) => {
 const validateEmailInput = (data) => {
   const errors = [];
   
-  if (!data.senderName || typeof data.senderName !== 'string' || data.senderName.trim().length === 0) {
-    errors.push('senderName is required and must be a non-empty string');
-  }
-  
   if (!data.senderEmail || typeof data.senderEmail !== 'string') {
     errors.push('senderEmail is required and must be a string');
   } else {
@@ -86,26 +82,63 @@ const validateEmailInput = (data) => {
       errors.push('senderEmail must be a valid email address');
     }
   }
-  
+
+  if (!data.destination || typeof data.destination !== 'string') {
+    errors.push('destination is required and must be a string');
+  } else {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.destination)) {
+      errors.push('destination must be a valid email address');
+    }
+  }
+
+  if (data.replyTo && typeof data.replyTo !== 'string') {
+    errors.push('replyTo must be a string');
+  } else if (data.replyTo) {
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.replyTo)) {
+      errors.push('replyTo must be a valid email address');
+    }
+  }
+
   if (!data.subject || typeof data.subject !== 'string' || data.subject.trim().length === 0) {
     errors.push('subject is required and must be a non-empty string');
   }
   
-  if (!data.message || typeof data.message !== 'string' || data.message.trim().length === 0) {
-    errors.push('message is required and must be a non-empty string');
-  }
-  
   // Length validations
-  if (data.senderName && data.senderName.length > 100) {
-    errors.push('senderName must be 100 characters or less');
+  if (data.senderEmail && data.senderEmail.length > 100) {
+    errors.push('senderEmail must be 100 characters or less');
   }
   
+  if (data.destination && data.destination.length > 100) {
+    errors.push('destination must be 100 characters or less');
+  }
+
+  if (data.replyTo && data.replyTo.length > 100) {
+    errors.push('replyTo must be 100 characters or less');
+  }
+
   if (data.subject && data.subject.length > 200) {
     errors.push('subject must be 200 characters or less');
   }
   
-  if (data.message && data.message.length > 5000) {
-    errors.push('message must be 5000 characters or less');
+  
+  if (!data.text || typeof data.text !== 'string' || data.text.trim().length === 0) {
+    errors.push('text is required and must be a non-empty string');
+  }
+
+  if (data.text && data.text.length > 5000) {
+    errors.push('text must be 5000 characters or less');
+  }
+  
+  if (!data.html || typeof data.html !== 'string' || data.html.trim().length === 0) {
+    errors.push('html is required and must be a non-empty string');
+  }
+
+  if (data.html && data.html.length > 5000) {
+    errors.push('html must be 5000 characters or less');
   }
   
   return errors;
