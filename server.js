@@ -60,6 +60,8 @@ const authenticateApiKey = (req, res, next) => {
       error: 'Missing X-API-Key header' 
     });
   }
+
+  //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
   
   if (apiKey !== process.env.CLIENT_KEY) {
     return res.status(403).json({ 
