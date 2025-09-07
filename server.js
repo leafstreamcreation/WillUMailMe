@@ -3,6 +3,7 @@ const express = require('express');
 const nodemailer = require('nodemailer');
 const helmet = require('helmet');
 const cors = require('cors');
+const { SubtleCrypto } = require('crypto').webcrypto;
 
 // Environment variables validation
 const requiredEnvVars = [
@@ -10,7 +11,10 @@ const requiredEnvVars = [
   'HOST_DOMAIN',
   'HOST_PORT',
   'SMTP_USER',
-  'SMTP_PASSWORD'
+  'SMTP_PASSWORD',
+  'API_KEY_SECRET',
+  'API_KEY_CIPHER',
+  'GCM_TAG_LENGTH'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -63,6 +67,11 @@ const authenticateApiKey = (req, res, next) => {
 
   //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
   
+  const key = SubtleCrypto.generateKey({
+    name: 'AES-GCM',
+    length: 256
+  });
+
   if (apiKey !== process.env.CLIENT_KEY) {
     return res.status(403).json({ 
       error: 'Invalid API key' 
