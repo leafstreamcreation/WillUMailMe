@@ -56,7 +56,7 @@ app.locals.transporter = nodemailer.createTransport({
 
 
 // API key authentication middleware
-const authenticateApiKey = (req, res, next) => {
+const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.get('X-API-Key');
   
   if (!apiKey) {
@@ -67,12 +67,20 @@ const authenticateApiKey = (req, res, next) => {
 
   //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
   
-  const key = SubtleCrypto.generateKey({
+  const key = await SubtleCrypto.generateKey({
     name: 'AES-GCM',
-    length: 256
+    length: 256,
+    usages: ['decrypt']
   });
 
-  if (apiKey !== process.env.CLIENT_KEY) {
+  const decryptedApiKey = await SubtleCrypto.decrypt({
+    name: 'AES-GCM',
+    key: key,
+    iv: '', // Initialization vector should be provided in the request or stored alongside the encrypted key
+    tagLength: process.env.GCM_TAG_LENGTH
+  });
+
+  if (decryptedApiKey !== process.env.CLIENT_KEY) {
     return res.status(403).json({ 
       error: 'Invalid API key' 
     });
