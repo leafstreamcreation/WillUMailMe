@@ -32,27 +32,6 @@ cp .env.example .env
 4. Start the service:
 ```bash
 docker-compose up -d
-```
-
-### Using Docker Build
-
-1. Build the image:
-```bash
-docker build -t willuemailme .
-```
-
-2. Run the container:
-```bash
-docker run -d \
-  -p 80:80 \
-  -e HOST_DOMAIN=smtp.gmail.com \
-  -e CLIENT_KEY=your-api-key \
-  -e RECIPIENT_ADDRESS=your-email@gmail.com \
-  -e RECIPIENT_PASSWORD=your-password \
-  -e PORT=80 \
-  --name willuemailme \
-  willuemailme
-```
 
 ### Local Development
 
@@ -83,6 +62,8 @@ X-API-Key: your-api-key-here
 **Request Body:**
 ```json
 {
+  "iv": "transmission-iv",
+  "salt": "transmission-salt",
   "senderName": "John Doe",
   "senderEmail": "john@example.com", 
   "subject": "Contact Form Submission",
@@ -174,6 +155,8 @@ curl -X POST http://localhost:80/send-email \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-api-key" \
   -d '{
+    "iv": "",
+    "salt": "",
     "senderName": "Test User",
     "senderEmail": "test@example.com",
     "subject": "Test Email",
@@ -190,6 +173,8 @@ fetch('http://localhost:80/send-email', {
     'X-API-Key': 'your-api-key'
   },
   body: JSON.stringify({
+    iv: "",
+    salt: "",
     senderName: 'Test User',
     senderEmail: 'test@example.com', 
     subject: 'Test Email',

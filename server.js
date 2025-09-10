@@ -14,7 +14,8 @@ const requiredEnvVars = [
   'SMTP_PASSWORD',
   'API_KEY_SECRET',
   'API_KEY_CIPHER',
-  'GCM_TAG_LENGTH'
+  'GCM_TAG_LENGTH',
+  'PBKDF2_ITERATIONS'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -23,6 +24,17 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
+function isAPIKey(key) {
+  return typeof key === 'string' && key.trim().length > 0;
+}
+
+function isValidIV(iv) {
+  return typeof iv === 'string' && iv.trim().length === 12; // IV should be 12 bytes for AES-GCM
+}
+
+function isValidSalt(salt) {
+  return typeof salt === 'string' && salt.trim().length === 16; // Salt should be 16 bytes for PBKDF2
+}
 
 const app = express();
 
@@ -55,33 +67,51 @@ app.locals.transporter = nodemailer.createTransport({
 });
 
 
-//yay bs commit
 // API key authentication middleware
 const authenticateApiKey = async (req, res, next) => {
   const apiKey = req.get('X-API-Key');
-  
-  if (!apiKey) {
-    return res.status(401).json({ 
-      error: 'Missing X-API-Key header' 
+  const { iv, salt } = req.body;
+
+  if (!isAPIKey(apiKey) || !isValidIV(iv) || !isValidSalt(salt)) {
+    return res.status(400).json({
+      error: 'Bad Request'
     });
   }
 
   //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
-  
-  const key = await SubtleCrypto.generateKey({
-    name: 'AES-GCM',
-    length: 256,
-    usages: ['decrypt']
-  });
+  const baseKey = await SubtleCrypto.importKey(
+    'raw',
+    process.env.API_KEY_SECRET,
+    {
+      name: 'PBKDF2'
+    },
+    false,
+    ['deriveKey']
+  );
+
+  const key = await SubtleCrypto.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: process.env.PBKDF2_ITERATIONS,
+      hash: 'SHA-256'
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
 
   const decryptedApiKey = await SubtleCrypto.decrypt({
     name: 'AES-GCM',
-    key: key,
-    iv: '', // Initialization vector should be provided in the request or stored alongside the encrypted key
+    iv,
     tagLength: process.env.GCM_TAG_LENGTH
-  });
+  },
+    key,
+    apiKey
+  ).then(decrypted => new TextDecoder().decode(decrypted));
 
-  if (decryptedApiKey !== process.env.CLIENT_KEY) {
+  if (decryptedApiKey !== process.env.API_KEY_CIPHER) {
     return res.status(403).json({ 
       error: 'Invalid API key' 
     });
