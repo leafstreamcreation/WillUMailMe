@@ -195,7 +195,7 @@ const validateEmailInput = (data) => {
 };
 
 // Health check endpoint
-app.get('/health', authenticateApiKey, async (req, res) => {
+app.post('/health', authenticateApiKey, async (req, res) => {
     app.locals.transporter.verify((error, success) => {
         if (error) { 
             console.error('SMTP connection failed:', error);

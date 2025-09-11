@@ -11,7 +11,8 @@ COPY package*.json ./
 RUN npm install
 
 # Copy the rest of the application code
-COPY . .
+COPY ./server.js .
+COPY ./healthcheck.js .
 
 # Create a non-root user to run the application
 RUN addgroup -g 1001 -S nodejs && \
@@ -26,7 +27,7 @@ EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"
+  CMD node ./healthcheck.js || exit 1SS
 
 # Start the application
 CMD ["npm", "start"]
