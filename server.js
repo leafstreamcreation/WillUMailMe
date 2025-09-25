@@ -69,7 +69,12 @@ const authenticateApiKey = async (req, res, next) => {
       error: 'Bad Request'
     });
   }
-  const cipher = Buffer.from(fullCipher.slice(0, process.env.API_KEY_CIPHER.length), 'hex');
+  const cipherTextEnd = process.env.API_KEY_CIPHER.length;
+  const ivEnd = process.env.API_KEY_IV_LENGTH + cipherTextEnd;
+  const saltEnd = process.env.API_KEY_SALT_LENGTH + ivEnd;
+  const cipherText = Buffer.from(fullCipher.slice(0, cipherTextEnd));
+  const iv = Buffer.from(fullCipher.slice(cipherTextEnd, ivEnd));
+  const salt = Buffer.from(fullCipher.slice(ivEnd, saltEnd));
 
   //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
   const baseKey = await SubtleCrypto.importKey(
@@ -101,7 +106,7 @@ const authenticateApiKey = async (req, res, next) => {
     tagLength: process.env.GCM_TAG_LENGTH
   },
     key,
-    fullCipher
+    cipherText
   ).then(decrypted => new TextDecoder().decode(decrypted));
 
   if (decryptedApiKey !== process.env.API_KEY_CIPHER) {
