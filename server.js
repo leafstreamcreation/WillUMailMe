@@ -15,7 +15,9 @@ const requiredEnvVars = [
   'API_KEY_SECRET',
   'API_KEY_CIPHER',
   'GCM_TAG_LENGTH',
-  'PBKDF2_ITERATIONS'
+  'PBKDF2_ITERATIONS',
+  'API_KEY_IV_LENGTH',
+  'API_KEY_SALT_LENGTH'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
@@ -25,15 +27,7 @@ if (missingEnvVars.length > 0) {
 }
 
 function isAPIKey(key) {
-  return typeof key === 'string' && key.trim().length > 0;
-}
-
-function isValidIV(iv) {
-  return typeof iv === 'string' && iv.trim().length === 12; // IV should be 12 bytes for AES-GCM
-}
-
-function isValidSalt(salt) {
-  return typeof salt === 'string' && salt.trim().length === 16; // Salt should be 16 bytes for PBKDF2
+  return typeof key === 'string' && key.trim().length === (parseInt(process.env.API_KEY_IV_LENGTH) + parseInt(process.env.API_KEY_SALT_LENGTH) + parseInt(process.env.API_KEY_CIPHER.length));
 }
 
 const app = express();
@@ -66,19 +60,16 @@ app.locals.transporter = nodemailer.createTransport({
     disableFileAccess: true, // Disable file access for security
 });
 
-
-//TODO: rewrite this to use the consolidated x-api-key header and remove iv and salt from body
-
 // API key authentication middleware
 const authenticateApiKey = async (req, res, next) => {
-  const apiKey = req.get('X-API-Key');
-  const { iv, salt } = req.body;
+  const fullCipher = req.get('X-API-Key');
 
-  if (!isAPIKey(apiKey) || !isValidIV(iv) || !isValidSalt(salt)) {
+  if (!isAPIKey(fullCipher)) {
     return res.status(400).json({
       error: 'Bad Request'
     });
   }
+  const cipher = Buffer.from(fullCipher.slice(0, process.env.API_KEY_CIPHER.length), 'hex');
 
   //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
   const baseKey = await SubtleCrypto.importKey(
@@ -110,7 +101,7 @@ const authenticateApiKey = async (req, res, next) => {
     tagLength: process.env.GCM_TAG_LENGTH
   },
     key,
-    apiKey
+    fullCipher
   ).then(decrypted => new TextDecoder().decode(decrypted));
 
   if (decryptedApiKey !== process.env.API_KEY_CIPHER) {
