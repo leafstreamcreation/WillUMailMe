@@ -27,7 +27,7 @@ if (missingEnvVars.length > 0) {
 }
 
 function isAPIKey(key) {
-  return typeof key === 'string' && key.trim().length === (parseInt(process.env.API_KEY_IV_LENGTH) + parseInt(process.env.API_KEY_SALT_LENGTH) + parseInt(process.env.API_KEY_CIPHER.length));
+  return typeof key === 'string' && key.trim().length === (parseInt(process.env.API_KEY_IV_LENGTH) + parseInt(process.env.API_KEY_SALT_LENGTH) + process.env.API_KEY_CIPHER.length);
 }
 
 const app = express();
@@ -62,15 +62,20 @@ app.locals.transporter = nodemailer.createTransport({
 
 // API key authentication middleware
 const authenticateApiKey = async (req, res, next) => {
-  const fullCipher = req.get('X-API-Key');
+  const base64Cipher = req.get('X-API-Key');
+  const fullCipher = Buffer.from(base64Cipher, 'base64');
 
   if (!isAPIKey(fullCipher)) {
     return res.status(400).json({
       error: 'Bad Request'
     });
   }
-  const cipher = Buffer.from(fullCipher.slice(0, process.env.API_KEY_CIPHER.length), 'hex');
-
+  const cipherLength = process.env.API_KEY_CIPHER.length;
+  const ivLength = parseInt(process.env.API_KEY_IV_LENGTH);
+  const saltLength = parseInt(process.env.API_KEY_SALT_LENGTH);
+  const cipher = Buffer.from(fullCipher.subarray(0, cipherLength));
+  const iv = Buffer.from(fullCipher.subarray(cipherLength, cipherLength + ivLength));
+  const salt = Buffer.from(fullCipher.subarray(cipherLength + ivLength, cipherLength + ivLength + saltLength));
   //TODO: decrypt inbound api key; api keys are aes-256-gcm encrypted in transit, so we need to decrypt them before comparison.
   const baseKey = await SubtleCrypto.importKey(
     'raw',
@@ -101,7 +106,7 @@ const authenticateApiKey = async (req, res, next) => {
     tagLength: process.env.GCM_TAG_LENGTH
   },
     key,
-    fullCipher
+    cipher
   ).then(decrypted => new TextDecoder().decode(decrypted));
 
   if (decryptedApiKey !== process.env.API_KEY_CIPHER) {
