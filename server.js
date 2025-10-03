@@ -9,8 +9,9 @@ const { subtle: SubtleCrypto } = webcrypto;
 
 // Environment variables validation
 const requiredEnvVars = [
-  'HOST_DOMAIN',
   'HOST_PORT',
+  'MAIL_DOMAIN',
+  'MAIL_PORT',
   'SMTP_USER',
   'SMTP_PASSWORD',
   'API_KEY_SECRET',
@@ -52,8 +53,8 @@ app.use('/send', (req, res, next) => {
 app.use(express.json({ limit: '1mb' }));
 
 app.locals.transporter = nodemailer.createTransport({
-    host: process.env.HOST_DOMAIN,
-    port: process.env.HOST_PORT, // Standard SMTP port for TLS
+    host: process.env.MAIL_DOMAIN,
+    port: process.env.MAIL_PORT, // Standard SMTP port for TLS
     secure: false, // Use TLS
     auth: {
       user: process.env.SMTP_USER, // Use SMTP_USER for authentication
