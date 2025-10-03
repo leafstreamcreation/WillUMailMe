@@ -1,11 +1,15 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import http from 'http';
+import https from 'https';
 import { webcrypto } from 'crypto';
 const { subtle } = webcrypto;
 
 const args = process.argv.slice(2);
-const port = args[0] ? parseInt(args[0]) : 3000;
+const host = args[0] || 'localhost';
+const port = args[1] ? parseInt(args[1]) : 3000;
+const path = args[2] || '/health';
+const security = args[3] || 'http';
 
 // Environment variables validation
 const requiredEnvVars = [
@@ -65,19 +69,28 @@ fullKey.set(iv, ciphertext.byteLength);
 fullKey.set(salt, ciphertext.byteLength + iv.byteLength);
 
 const apiKey = Buffer.from(fullKey).toString('base64');
-
-http.request({
+const client = security === 'y' ? https : http;
+console.log('Using ' + (security === 'y' ? 'https' : 'http'));
+client.request({
   method: 'POST',
-  hostname: 'localhost',
+  hostname: host,
   port: port,
-  path: '/health',
+  path: path,
   headers: {
     'Content-Type': 'application/json',
     'X-API-Key': apiKey
   }
 }, (res) => {
+  let data = '';
+  res.on('data', (chunk) => {
+    data += chunk;
+  });
   res.on('end', () => {
+    console.log(`Health check status: ${res.statusCode}, response: ${data}`);
     process.exit(res.statusCode === 200 ? 0 : 1);
   });
-  res.on('error', () => process.exit(1));
+  res.on('error', () => {
+    console.error('Health check request failed');
+    process.exit(1);
+  });
 }).end();
