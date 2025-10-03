@@ -76,12 +76,9 @@ http.request({
     'Content-Type': 'application/json',
     'X-API-Key': apiKey
   }
-}, (res) => { 
-  let data = '';
-  res.on('data', chunk => {
-    data += chunk;
-  });
+}, (res) => {
   res.on('end', () => {
     process.exit(res.statusCode === 200 ? 0 : 1);
   });
-}).on('error', () => process.exit(1)).end();
+  res.on('error', () => process.exit(1));
+}).end();

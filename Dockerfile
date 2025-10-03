@@ -1,5 +1,5 @@
 # Use the official Node.js Alpine image
-FROM node:alpine
+FROM node:lts-slim
 
 # Set the working directory inside the container
 WORKDIR /app
@@ -15,8 +15,8 @@ COPY ./server.js .
 COPY ./healthcheck.js .
 
 # Create a non-root user to run the application
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodeuser -u 1001
+RUN addgroup --gid 1001 --system nodejs && \
+    adduser --system nodeuser -u 1001
 
 # Change ownership of the app directory to the nodejs user
 RUN chown -R nodeuser:nodejs /app
