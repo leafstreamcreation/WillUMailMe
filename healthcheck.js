@@ -1,6 +1,11 @@
-require('dotenv').config();
-const http = require('http');
-const crypto = require('node:crypto').webcrypto;
+import dotenv from 'dotenv';
+dotenv.config();
+import http from 'http';
+import { webcrypto } from 'crypto';
+const { subtle } = webcrypto;
+
+const args = process.argv.slice(2);
+const port = args[0] ? parseInt(args[0]) : 3000;
 
 // Environment variables validation
 const requiredEnvVars = [
@@ -19,17 +24,17 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-const iv = crypto.getRandomValues(new Uint8Array(parseInt(process.env.API_KEY_IV_LENGTH)));
-const salt = crypto.getRandomValues(new Uint8Array(parseInt(process.env.API_KEY_SALT_LENGTH)));
+const iv = webcrypto.getRandomValues(new Uint8Array(parseInt(process.env.API_KEY_IV_LENGTH)));
+const salt = webcrypto.getRandomValues(new Uint8Array(parseInt(process.env.API_KEY_SALT_LENGTH)));
 const encodedCreds = new TextEncoder().encode(process.env.API_KEY_SECRET);
-const baseKey = await crypto.subtle.importKey(
+const baseKey = await subtle.importKey(
     "raw",
     encodedCreds,
     { name: "PBKDF2" },
     false,
     ["deriveKey"],
 );
-const key = await crypto.subtle.deriveKey(
+const key = await subtle.deriveKey(
   {
       name: "PBKDF2",
       salt,
@@ -44,7 +49,7 @@ const key = await crypto.subtle.deriveKey(
 
 
   const plaintext = new TextEncoder().encode(process.env.API_KEY_CIPHER);
-  const encrypted = await crypto.subtle.encrypt(
+  const encrypted = await subtle.encrypt(
   {
     name: "AES-GCM",
     iv,
@@ -65,10 +70,18 @@ const apiKey = Buffer.from(fullKey).toString('base64');
 http.request({
   method: 'POST',
   hostname: 'localhost',
-  port: 3000,
+  port: port,
   path: '/health',
   headers: {
     'Content-Type': 'application/json',
-    'x-api-key': apiKey
+    'X-API-Key': apiKey
   }
-}, (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1));
+}, (res) => { 
+  let data = '';
+  res.on('data', chunk => {
+    data += chunk;
+  });
+  res.on('end', () => {
+    process.exit(res.statusCode === 200 ? 0 : 1);
+  });
+}).on('error', () => process.exit(1)).end();

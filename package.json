@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "A Dockerized Express.js email server with API key authentication",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "healthcheck": "node healthcheck.js"
   },
   "keywords": [
     "express",

@@ -1,9 +1,11 @@
-require('dotenv').config();
-const express = require('express');
-const nodemailer = require('nodemailer');
-const helmet = require('helmet');
-const cors = require('cors');
-const { SubtleCrypto } = require('crypto').webcrypto;
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
+import nodemailer from 'nodemailer';
+import helmet from 'helmet';
+import cors from 'cors';
+import { webcrypto } from 'crypto';
+const { subtle: SubtleCrypto } = webcrypto;
 
 // Environment variables validation
 const requiredEnvVars = [
@@ -26,8 +28,9 @@ if (missingEnvVars.length > 0) {
   process.exit(1);
 }
 
-function isAPIKey(key) {
-  return typeof key === 'string' && key.trim().length === (parseInt(process.env.API_KEY_IV_LENGTH) + parseInt(process.env.API_KEY_SALT_LENGTH) + process.env.API_KEY_CIPHER.length);
+function isAPIKey(keyBuffer) {
+  const cipherBuffer = Buffer.from(process.env.API_KEY_CIPHER);
+  return keyBuffer.byteLength >= (parseInt(process.env.API_KEY_IV_LENGTH) + parseInt(process.env.API_KEY_SALT_LENGTH) + cipherBuffer.byteLength);
 }
 
 const app = express();
@@ -63,52 +66,58 @@ app.locals.transporter = nodemailer.createTransport({
 // API key authentication middleware
 const authenticateApiKey = async (req, res, next) => {
   const base64Cipher = req.get('X-API-Key');
-  const fullCipher = Buffer.from(base64Cipher, 'base64');
-
+  const fullCipher = Buffer.from(base64Cipher || "", 'base64');
   if (!isAPIKey(fullCipher)) {
     return res.status(400).json({
       error: 'Bad Request'
     });
   }
-  const cipherTextEnd = process.env.API_KEY_CIPHER.length;
-  const ivEnd = parseInt(process.env.API_KEY_IV_LENGTH) + cipherTextEnd;
-  const saltEnd = parseInt(process.env.API_KEY_SALT_LENGTH) + ivEnd;
-  const cipherText = Buffer.from(fullCipher.subarray(0, cipherTextEnd));
-  const iv = Buffer.from(fullCipher.subarray(cipherTextEnd, ivEnd));
-  const salt = Buffer.from(fullCipher.subarray(ivEnd, saltEnd));
+  const saltStart = fullCipher.byteLength - parseInt(process.env.API_KEY_SALT_LENGTH);
+  const salt = Buffer.from(fullCipher.subarray(saltStart, fullCipher.byteLength));
+  const ivStart = saltStart - parseInt(process.env.API_KEY_IV_LENGTH);
+  const iv = Buffer.from(fullCipher.subarray(ivStart, saltStart));
+  const cipherText = Buffer.from(fullCipher.subarray(0, ivStart));
 
-  const baseKey = await SubtleCrypto.importKey(
-    'raw',
-    process.env.API_KEY_SECRET,
-    {
-      name: 'PBKDF2'
+  
+  let decryptedApiKey = null;
+  try {
+    const keySecretEncoded = new TextEncoder().encode(process.env.API_KEY_SECRET);
+    const baseKey = await SubtleCrypto.importKey(
+      'raw',
+      keySecretEncoded,
+      {
+        name: 'PBKDF2'
+      },
+      false,
+      ['deriveKey']
+    );
+
+    const key = await SubtleCrypto.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: process.env.PBKDF2_ITERATIONS,
+        hash: 'SHA-256'
+      },
+      baseKey,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+
+    decryptedApiKey = await SubtleCrypto.decrypt({
+      name: 'AES-GCM',
+      iv,
+      tagLength: process.env.GCM_TAG_LENGTH
     },
-    false,
-    ['deriveKey']
-  );
-
-  const key = await SubtleCrypto.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations: process.env.PBKDF2_ITERATIONS,
-      hash: 'SHA-256'
-    },
-    baseKey,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
-
-  const decryptedApiKey = await SubtleCrypto.decrypt({
-    name: 'AES-GCM',
-    iv,
-    tagLength: process.env.GCM_TAG_LENGTH
-  },
-    key,
-    cipherText
-  ).then(decrypted => new TextDecoder().decode(decrypted));
-
+      key,
+      cipherText
+    ).then(decrypted => new TextDecoder().decode(decrypted));
+  } catch (error) {
+    return res.status(403).json({ 
+      error: 'Invalid API key' 
+    });
+  }
   if (decryptedApiKey !== process.env.API_KEY_CIPHER) {
     return res.status(403).json({ 
       error: 'Invalid API key' 
@@ -194,15 +203,13 @@ const validateEmailInput = (data) => {
 
 // Health check endpoint
 app.post('/health', authenticateApiKey, async (req, res) => {
-    app.locals.transporter.verify((error, success) => {
+  app.locals.transporter.verify((error, success) => {
         if (error) { 
-            console.error('SMTP connection failed:', error);
             return res.status(500).json({ 
             error: 'Email service configuration error' 
             });
         }
         else {
-          console.log('SMTP connection verified successfully');
           return res.status(200).json({ 
               status: 'healthy',
               timestamp: new Date().toISOString(),
@@ -239,8 +246,6 @@ app.post('/send', authenticateApiKey, async (req, res) => {
     // Send email
     const info = await app.locals.transporter.sendMail(mailOptions);
     
-    console.log('Email sent successfully:', info.messageId);
-    
     return res.status(200).json({ 
       success: true,
       message: 'Email sent successfully',
@@ -248,7 +253,6 @@ app.post('/send', authenticateApiKey, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Error sending email:', error);
     
     // Handle specific nodemailer errors
     if (error.code === 'EAUTH') {
@@ -277,7 +281,6 @@ app.use('*', (req, res) => {
 
 // Global error handler
 app.use((error, req, res, next) => {
-  console.error('Unhandled error:', error);
   
   if (error.type === 'entity.parse.failed') {
     return res.status(400).json({ 
@@ -292,6 +295,5 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(3000, '0.0.0.0', () => {
-  console.log(`Email server running on port 3000`);
-  console.log(`Health check available at: http://localhost:3000/health`);
+  console.log(`Email API running on port 3000`);
 });

@@ -23,7 +23,7 @@ RUN chown -R nodeuser:nodejs /app
 USER nodeuser
 
 # Expose the port the app runs on
-EXPOSE 80
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
