@@ -9,7 +9,6 @@ const port = args[0] ? parseInt(args[0]) : 3000;
 
 // Environment variables validation
 const requiredEnvVars = [
-  'CLIENT_KEY', 
   'API_KEY_SECRET',
   'API_KEY_CIPHER',
   'GCM_TAG_LENGTH',

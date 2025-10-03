@@ -9,7 +9,6 @@ const { subtle: SubtleCrypto } = webcrypto;
 
 // Environment variables validation
 const requiredEnvVars = [
-  'CLIENT_KEY', 
   'HOST_DOMAIN',
   'HOST_PORT',
   'SMTP_USER',
