@@ -72,12 +72,11 @@ const apiKey = Buffer.from(fullKey).toString('base64');
 const client = security === 'y' ? https : http;
 console.log('Using ' + (security === 'y' ? 'https' : 'http'));
 client.request({
-  method: 'POST',
+  method: 'GET',
   hostname: host,
   port: port,
   path: path,
   headers: {
-    'Content-Type': 'application/json',
     'X-API-Key': apiKey
   }
 }, (res) => {

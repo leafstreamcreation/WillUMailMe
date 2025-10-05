@@ -202,7 +202,7 @@ const validateEmailInput = (data) => {
 };
 
 // Health check endpoint
-app.post('/health', authenticateApiKey, async (req, res) => {
+app.get('/health', authenticateApiKey, async (req, res) => {
   app.locals.transporter.verify((error, success) => {
         if (error) { 
             return res.status(500).json({ 
