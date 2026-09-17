@@ -207,6 +207,7 @@ const validateEmailInput = (data) => {
 app.get('/health', authenticateApiKey, async (req, res) => {
   app.locals.transporter.verify((error, success) => {
         if (error) { 
+          console.error(error);
             return res.status(500).json({ 
             error: 'Email service configuration error' 
             });
