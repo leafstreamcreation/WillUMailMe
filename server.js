@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
+import morgan from 'morgan';
 import nodemailer from 'nodemailer';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -39,6 +40,7 @@ const app = express();
 app.use(helmet());
 // Enable CORS for all origins
 app.use(cors());
+app.use(morgan('combined'));
 
 // Middleware to parse JSON and validate content-type
 app.use('/send', (req, res, next) => {
@@ -269,6 +271,7 @@ app.post('/send', authenticateApiKey, async (req, res) => {
       error: 'Failed to send email',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
+    console.error(error);
   }
 });
 

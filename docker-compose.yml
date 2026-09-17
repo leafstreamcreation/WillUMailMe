@@ -1,5 +1,5 @@
 services:
-  willuemailme:
+  contact-meatballcloud:
     build: .
     ports:
       - "${HOST_PORT}:3000"
